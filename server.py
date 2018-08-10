@@ -1,6 +1,16 @@
 #!/usr/bin/python
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
+class PUTHandler(BaseHTTPRequestHandler):
+    def do_PUT(self):
+        print "----- SOMETHING WAS PUT!! ------"
+        print self.headers
+
+        length = self.headers['Content-Length']
+        content = self.rfile.read(int(length))
+        self.send_response(200)
+        print content
+
 black_cell_dict = {
 }
 
@@ -87,6 +97,12 @@ def step(steps):
         # advance once
         move_machine()
 
+
+
+def run_on(port):
+    instance = ('localhost', port)
+    http_server = HTTPServer(instance, PUTHandler)
+    http_server.serve_forever()
 
 def main():
     step(1000000000)
