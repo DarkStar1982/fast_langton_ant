@@ -26,18 +26,17 @@ class Simulator(object):
         for i in range(0,steps):
             x = self.machine["pos_x"]
             y = self.machine["pos_y"]
-            angle = self.machine["angle"]
             # check local position and rotate counterclockwise (can go negative)
             # or clockwise (always positive) in 90 deg increments, and flip color
             if (x,y) in self.black_cell_dict:
-                angle = (angle - 90) % 360
+                self.machine["angle"] = (self.machine["angle"] - 90) % 360
                 del self.black_cell_dict[(x,y)]
             else:
-                angle = (angle + 90) % 360
+                self.machine["angle"] = (self.machine["angle"] + 90) % 360
                 self.black_cell_dict[(x,y)] = 1
             # advance one unit
-            x = x + self.moves[angle][0]
-            y = y + self.moves[angle][1]
+            x = x + self.moves[self.machine["angle"]][0]
+            y = y + self.moves[self.machine["angle"]][1]
             # update bounding box
             self.bounding_box["max_x"] = max(x, self.bounding_box["max_x"])
             self.bounding_box["max_y"] = max(y, self.bounding_box["max_y"])
@@ -46,7 +45,6 @@ class Simulator(object):
             # update machine state
             self.machine["pos_x"] = x
             self.machine["pos_y"] = y
-            self.machine["angle"] = angle
 
     def dump_to_file(self):
         # recalculate coordinate range from -x..x, -y..y to 0..X, 0..Y
@@ -56,29 +54,10 @@ class Simulator(object):
         self.bounding_box["offset_min_y"] = self.bounding_box["min_y"] + self.bounding_box["offset_y"]
         self.bounding_box["offset_max_x"] = self.bounding_box["max_x"] + self.bounding_box["offset_x"]
         self.bounding_box["offset_max_y"] = self.bounding_box["max_y"] + self.bounding_box["offset_y"]
-        #self.save_file_slow()
-        self.save_file_fast()
+        self.save_file()
 
-    def get_black_cells_in_row(self, y_pos):
-        y = y_pos - self.bounding_box["offset_y"]
-        x_first = self.bounding_box["min_x"]
-        x_last = self.bounding_box["max_x"]+1
-        p_line = bytearray('.' * (self.bounding_box["offset_max_x"]+1))
-        for x in range(x_first,x_last):
-            if (x,y) in self.black_cell_dict:
-                p_line[x+self.bounding_box["offset_x"]] = ('*')
-        return p_line
-
-    def save_file_slow(self):
-        file = open(self.filename, "w")
-        for y in range(self.bounding_box["offset_max_y"],self.bounding_box["offset_min_y"]-1, -1):
-            line_x = self.get_black_cells_in_row(y)
-            file.write(line_x)
-            file.write("\n")
-        file.close()
-
-    # careful - will make your disk run out of space in a few min with steps=10M
-    def save_file_fast(self):
+    # careful - with steps=10M file size will be about 36G
+    def save_file(self):
         # pass one - write down the empty field
         file = open(self.filename, "w")
         for y in range(self.bounding_box["offset_max_y"],self.bounding_box["offset_min_y"]-1, -1):
@@ -104,7 +83,6 @@ class PUTHandler(BaseHTTPRequestHandler):
         length = self.headers['Content-Length']
         content = self.rfile.read(int(length))
         request_data = loads(content)
-
         if "run_steps" in request_data and "filename" in request_data:
             simulator = Simulator(request_data["filename"])
             simulator.run_steps(request_data["run_steps"])
