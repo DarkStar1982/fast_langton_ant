@@ -1,115 +1,111 @@
 #!/usr/bin/python
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+from json import loads
+import sys
+import getopt
+
+class Simulator(object):
+    def __init__(self, filename):
+        self.filename = filename
+        self.black_cell_dict = {}
+        self.machine = { "angle":90, "pos_x":0, "pos_y":0 }
+        self.bounding_box = {
+            "max_x":0, "offset_max_x":0,
+            "max_y":0, "offset_max_y":0,
+            "min_x":0, "offset_min_x":0,
+            "min_y":0, "offset_min_y":0,
+            "offset_x":0, "offset_y":0
+        }
+        self.moves = {
+            0:[0,1],    # up
+            90:[1,0],   # right
+            180:[0,-1], # down
+            270:[-1,0]} # left
+
+    def run_steps(self, steps, filename):
+        for i in range(0,steps):
+            x = self.machine["pos_x"]
+            y = self.machine["pos_y"]
+            angle = self.machine["angle"]
+            # check local position and rotate counterclockwise (can go negative)
+            # or clockwise (always positive) in 90 deg increments, and flip color
+            if (x,y) in self.black_cell_dict:
+                angle = (angle - 90) % 360
+                del self.black_cell_dict[(x,y)]
+            else:
+                angle = (angle + 90) % 360
+                self.black_cell_dict[(x,y)] = 1
+            # advance one unit
+            x = x + self.moves[angle][0]
+            y = y + self.moves[angle][1]
+            # update bounding box
+            self.bounding_box["max_x"] = max(x, self.bounding_box["max_x"])
+            self.bounding_box["max_y"] = max(y, self.bounding_box["max_y"])
+            self.bounding_box["min_x"] = min(x, self.bounding_box["min_x"])
+            self.bounding_box["min_y"] = min(y, self.bounding_box["min_y"])
+            # update machine state
+            self.machine["pos_x"] = x
+            self.machine["pos_y"] = y
+            self.machine["angle"] = angle
+
+    def dump_to_file(self):
+        # recalculate coordinate range from -x..x, -y..y to 0..X, 0..Y
+        self.bounding_box["offset_x"] = 0 - self.bounding_box["min_x"]
+        self.bounding_box["offset_y"] = 0 - self.bounding_box["min_y"]
+        self.bounding_box["offset_min_x"] = self.bounding_box["min_x"] + self.bounding_box["offset_x"]
+        self.bounding_box["offset_min_y"] = self.bounding_box["min_y"] + self.bounding_box["offset_y"]
+        self.bounding_box["offset_max_x"] = self.bounding_box["max_x"] + self.bounding_box["offset_x"]
+        self.bounding_box["offset_max_y"] = self.bounding_box["max_y"] + self.bounding_box["offset_y"]
+        #dump to file or standart i/o, row by row
+        for y in range(self.bounding_box["offset_max_y"],self.bounding_box["offset_min_y"]-1, -1):
+            line_x = self.get_black_cells_in_row(y)
+            print line_x
+        # print len(self.black_cell_dict)
+        # print self.bounding_box
+
+    def get_black_cells_in_row(self, y_pos):
+        y = y_pos - self.bounding_box["offset_y"]
+        x_first = self.bounding_box["min_x"]
+        x_last = self.bounding_box["max_x"]+1
+        p_line = bytearray('.' * (self.bounding_box["offset_max_x"]+1))
+        for x in range(x_first,x_last):
+            if (x,y) in self.black_cell_dict:
+                p_line[x+self.bounding_box["offset_x"]] = ('*')
+        return p_line
 
 class PUTHandler(BaseHTTPRequestHandler):
     def do_PUT(self):
-        print "----- SOMETHING WAS PUT!! ------"
-        print self.headers
-
         length = self.headers['Content-Length']
         content = self.rfile.read(int(length))
-        self.send_response(200)
-        print content
+        request_data = loads(content)
 
-black_cell_dict = {
-}
-
-bounding_box = {
-    "max_x":0,
-    "max_y":0,
-    "min_x":0,
-    "min_y":0,
-    "offset_max_x":0,
-    "offset_max_y":0,
-    "offset_min_x":0,
-    "offset_min_y":0,
-    "offset_x":0,
-    "offset_y":0
-}
-
-machine = {
-    "angle":90,
-    "pos_x":0,
-    "pos_y":0
-}
-
-def get_black_cells(y):
-    p_line = bytearray('.' * (bounding_box["offset_max_x"]+1))
-    # print y
-    for x in range(bounding_box["min_x"],bounding_box["max_x"]+1):
-        if (x,y) in black_cell_dict:
-            p_line[x+bounding_box["offset_x"]] = ('*')
-    return p_line
-
-# recalculate coordinate range from -x..x, -y..y to 0..X, 0..Y
-def update_bounding_box():
-    bounding_box["offset_x"] = 0 - bounding_box["min_x"]
-    bounding_box["offset_y"] = 0 - bounding_box["min_y"]
-    bounding_box["offset_min_x"] = bounding_box["min_x"] + bounding_box["offset_x"]
-    bounding_box["offset_min_y"] = bounding_box["min_y"] + bounding_box["offset_y"]
-    bounding_box["offset_max_x"] = bounding_box["max_x"] + bounding_box["offset_x"]
-    bounding_box["offset_max_y"] = bounding_box["max_y"] + bounding_box["offset_y"]
-
-# print to stdout or write to file
-def dump_to_file():
-    for y in range(bounding_box["offset_max_y"],bounding_box["offset_min_y"]-1, -1):
-        line_x = get_black_cells(y-bounding_box["offset_y"])
-        print line_x
-
-# if the coordinate pair is in black cell list, remove it from black cells
-# if the coordinates pair not in black cell list, add it to black cells.
-def flip_color(x, y):
-    if (x,y) in black_cell_dict:
-        del black_cell_dict[(x,y)]
-    else:
-        black_cell_dict[(x,y)] = 1
-
-# move the machine and update bounding box
-def move_machine():
-    if machine["angle"] == 0:
-        machine["pos_y"] = machine["pos_y"] + 1
-    if machine["angle"] == 90:
-        machine["pos_x"] = machine["pos_x"] + 1
-    if machine["angle"] == 180:
-        machine["pos_y"] = machine["pos_y"] - 1
-    if machine["angle"] == 270:
-        machine["pos_x"] = machine["pos_x"] - 1
-    if (machine["pos_x"]>bounding_box["max_x"]):
-        bounding_box["max_x"] = machine["pos_x"]
-    if (machine["pos_y"]>bounding_box["max_y"]):
-        bounding_box["max_y"] = machine["pos_y"]
-    if (machine["pos_x"]<bounding_box["min_x"]):
-        bounding_box["min_x"] = machine["pos_x"]
-    if (machine["pos_y"]<bounding_box["min_y"]):
-        bounding_box["min_y"] = machine["pos_y"]
-
-def step(steps):
-    #check the grid state
-    for i in range(0,steps):
-        # check local position
-        if (machine["pos_x"],machine["pos_y"]) in black_cell_dict:
-            # rotate counterclockwise > can go negative
-            machine["angle"] = (machine["angle"] - 90) % 360
+        if "run_steps" in request_data and "filename" in request_data:
+            simulator = Simulator(request_data["filename"])
+            simulator.run_steps(request_data["run_steps"])
+            simulator.dump_to_file()
+            self.send_response(200)
         else:
-            # rotate clockwise > always positive increments
-            machine["angle"] = (machine["angle"] + 90) % 360
-        flip_color(machine["pos_x"],machine["pos_y"])
-        # advance once
-        move_machine()
+            self.send_response(200)
 
-
-
-def run_on(port):
+def run_server(port):
     instance = ('localhost', port)
     http_server = HTTPServer(instance, PUTHandler)
     http_server.serve_forever()
 
-def main():
-    step(1000000000)
-    #print machine
-    update_bounding_box()
-    #dump_to_file()
-    print len(black_cell_dict)
-    print bounding_box
+def main(argv):
+    port = 8080
+    try:
+        opts, args = getopt.getopt(argv,"hp:",["help","port=",])
+    except getopt.GetoptError:
+        print ('server.py --help')
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt in ('-h','--help'):
+            print "Specify server port with -p <port number> or --port <port number>"
+            sys.exit(0)
+        elif opt in ('-p','--port'):
+            port = int(arg)
+    print "Running on server port %i" % port
+    run_server(port)
 
-main()
+main(sys.argv[1:])
