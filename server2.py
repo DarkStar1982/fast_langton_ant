@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-black_cells = []
 black_cell_dict = {
 }
 
@@ -13,6 +12,8 @@ bounding_box = {
     "offset_max_y":0,
     "offset_min_x":0,
     "offset_min_y":0,
+    "offset_x":0,
+    "offset_y":0
 }
 
 machine = {
@@ -21,38 +22,36 @@ machine = {
     "pos_y":0
 }
 
-def get_black_cells(y_pos, p_line):
-    offset_x = 0 - bounding_box["min_x"]
-    offset_y = 0 - bounding_box["min_y"]
-    y = y_pos - offset_y
+def get_black_cells(y):
+    p_line = bytearray('.' * (bounding_box["offset_max_x"]+1))
     # print y
-    for x_pos in range(bounding_box["offset_min_x"],bounding_box["offset_max_x"]+1):
-        x = x_pos - offset_x
-        if [x,y] in black_cells:
-            p_line[x+offset_x] = ('*')
+    for x in range(bounding_box["min_x"],bounding_box["max_x"]+1):
+        if (x,y) in black_cell_dict:
+            p_line[x+bounding_box["offset_x"]] = ('*')
     return p_line
 
-# recalculate coordinates
+# recalculate coordinate range from -x..x, -y..y to 0..X, 0..Y
+def update_bounding_box():
+    bounding_box["offset_x"] = 0 - bounding_box["min_x"]
+    bounding_box["offset_y"] = 0 - bounding_box["min_y"]
+    bounding_box["offset_min_x"] = bounding_box["min_x"] + bounding_box["offset_x"]
+    bounding_box["offset_min_y"] = bounding_box["min_y"] + bounding_box["offset_y"]
+    bounding_box["offset_max_x"] = bounding_box["max_x"] + bounding_box["offset_x"]
+    bounding_box["offset_max_y"] = bounding_box["max_y"] + bounding_box["offset_y"]
+
+# print to stdout or write to file
 def dump_to_file():
-    offset_x = 0 - bounding_box["min_x"]
-    offset_y = 0 - bounding_box["min_y"]
-    bounding_box["offset_min_x"] = bounding_box["min_x"] + offset_x
-    bounding_box["offset_min_y"] = bounding_box["min_y"] + offset_y
-    bounding_box["offset_max_x"] = bounding_box["max_x"] + offset_x
-    bounding_box["offset_max_y"] = bounding_box["max_y"] + offset_y
     for y in range(bounding_box["offset_max_y"],bounding_box["offset_min_y"]-1, -1):
-        line_x = bytearray('.' * (bounding_box["offset_max_x"]+1))
-        line_x = get_black_cells(y,line_x)
-        print line_x # or write to file
+        line_x = get_black_cells(y-bounding_box["offset_y"])
+        print line_x
 
 # if the coordinate pair is in black cell list, remove it from black cells
 # if the coordinates pair not in black cell list, add it to black cells.
 def flip_color(x, y):
-    if [x,y] in black_cells:
-        black_cells.remove([x,y])
+    if (x,y) in black_cell_dict:
+        del black_cell_dict[(x,y)]
     else:
-        black_cells.append([x,y])
-        # black_cell_dict[(x,y)] = 1
+        black_cell_dict[(x,y)] = 1
 
 # move the machine and update bounding box
 def move_machine():
@@ -77,7 +76,7 @@ def step(steps):
     #check the grid state
     for i in range(0,steps):
         # check local position
-        if [machine["pos_x"],machine["pos_y"]] in black_cells:
+        if (machine["pos_x"],machine["pos_y"]) in black_cell_dict:
             # rotate counterclockwise > can go negative
             machine["angle"] = (machine["angle"] - 90) % 360
         else:
@@ -88,11 +87,11 @@ def step(steps):
         move_machine()
 
 def main():
-    step(1)
+    step(1000000000)
     #print machine
-    #print black_cells
-    #print bounding_box
-    # print '#Life 1.05'
-    dump_to_file()
+    update_bounding_box()
+    #dump_to_file()
+    print len(black_cell_dict)
+    print bounding_box
 
 main()
