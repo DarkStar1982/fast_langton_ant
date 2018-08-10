@@ -22,7 +22,7 @@ class Simulator(object):
             180:[0,-1], # down
             270:[-1,0]} # left
 
-    def run_steps(self, steps, filename):
+    def run_steps(self, steps):
         for i in range(0,steps):
             x = self.machine["pos_x"]
             y = self.machine["pos_y"]
@@ -56,12 +56,8 @@ class Simulator(object):
         self.bounding_box["offset_min_y"] = self.bounding_box["min_y"] + self.bounding_box["offset_y"]
         self.bounding_box["offset_max_x"] = self.bounding_box["max_x"] + self.bounding_box["offset_x"]
         self.bounding_box["offset_max_y"] = self.bounding_box["max_y"] + self.bounding_box["offset_y"]
-        #dump to file or standart i/o, row by row
-        for y in range(self.bounding_box["offset_max_y"],self.bounding_box["offset_min_y"]-1, -1):
-            line_x = self.get_black_cells_in_row(y)
-            print line_x
-        # print len(self.black_cell_dict)
-        # print self.bounding_box
+        #self.save_file_slow()
+        self.save_file_fast()
 
     def get_black_cells_in_row(self, y_pos):
         y = y_pos - self.bounding_box["offset_y"]
@@ -72,6 +68,36 @@ class Simulator(object):
             if (x,y) in self.black_cell_dict:
                 p_line[x+self.bounding_box["offset_x"]] = ('*')
         return p_line
+
+    def save_file_slow(self):
+        file = open(self.filename, "w")
+        for y in range(self.bounding_box["offset_max_y"],self.bounding_box["offset_min_y"]-1, -1):
+            line_x = self.get_black_cells_in_row(y)
+            file.write(line_x)
+            file.write("\n")
+        file.close()
+
+    # careful - will make your disk run out of space in a few min with steps=10M
+    def save_file_fast(self):
+        # pass one - write down the empty field
+        file = open(self.filename, "w")
+        for y in range(self.bounding_box["offset_max_y"],self.bounding_box["offset_min_y"]-1, -1):
+            p_line = bytearray('.' * (self.bounding_box["offset_max_x"]+1))
+            file.write(p_line)
+            file.write("\n")
+        file.close()
+        # pass two - write down the black cells
+        file = open(self.filename, "r+")
+        rows = (self.bounding_box["offset_max_y"])
+        line_length = self.bounding_box["offset_max_x"]+2
+        file_length = line_length*rows
+        for item in self.black_cell_dict.keys():
+            x = item[0] + self.bounding_box["offset_x"]
+            y = item[1] + self.bounding_box["offset_y"]
+            file.seek(file_length-y*line_length+x)
+            file.write('*')
+        file.close()
+
 
 class PUTHandler(BaseHTTPRequestHandler):
     def do_PUT(self):
@@ -85,7 +111,7 @@ class PUTHandler(BaseHTTPRequestHandler):
             simulator.dump_to_file()
             self.send_response(200)
         else:
-            self.send_response(200)
+            self.send_response(400)
 
 def run_server(port):
     instance = ('localhost', port)
