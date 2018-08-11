@@ -100,7 +100,7 @@ def main(argv):
             print "Specifying -n or --nofile option doesn't save simulation result to disk"
             print "\tUseful when running in benchmark mode only"
             sys.exit(0)
-        if opt in ('-n','--nofile'):
+        elif opt in ('-n','--nofile'):
             OPTIONS["nofile"] = True
         elif opt in ('-p','--port'):
             OPTIONS["port"] = int(arg)
