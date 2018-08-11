@@ -17,35 +17,32 @@ class Simulator(object):
             "offset_x":0, "offset_y":0
         }
         self.moves = {
-            0:[0,1],    # up
-            90:[1,0],   # right
-            180:[0,-1], # down
-            270:[-1,0]} # left
+            0:[0,1],   # up
+            90:[1,0],  # right
+            180:[0,-1],# down
+            270:[-1,0] # left
+        }
 
     def run_steps(self, steps):
         for i in range(0,steps):
-            x = self.machine["pos_x"]
-            y = self.machine["pos_y"]
             # check local position and rotate counterclockwise (can go negative)
             # or clockwise (always positive) in 90 deg increments, and flip color
-            if (x,y) in self.black_cell_dict:
+            if (self.machine["pos_x"],self.machine["pos_y"]) in self.black_cell_dict:
                 self.machine["angle"] = (self.machine["angle"] - 90) % 360
-                del self.black_cell_dict[(x,y)]
+                del self.black_cell_dict[(self.machine["pos_x"],self.machine["pos_y"])]
             else:
                 self.machine["angle"] = (self.machine["angle"] + 90) % 360
-                self.black_cell_dict[(x,y)] = 1
+                self.black_cell_dict[(self.machine["pos_x"],self.machine["pos_y"])] = 1
             # advance one unit
-            x = x + self.moves[self.machine["angle"]][0]
-            y = y + self.moves[self.machine["angle"]][1]
+            self.machine["pos_x"] = self.machine["pos_x"] + self.moves[self.machine["angle"]][0]
+            self.machine["pos_y"] = self.machine["pos_y"] + self.moves[self.machine["angle"]][1]
             # update bounding box
-            self.bounding_box["max_x"] = max(x, self.bounding_box["max_x"])
-            self.bounding_box["max_y"] = max(y, self.bounding_box["max_y"])
-            self.bounding_box["min_x"] = min(x, self.bounding_box["min_x"])
-            self.bounding_box["min_y"] = min(y, self.bounding_box["min_y"])
-            # update machine state
-            self.machine["pos_x"] = x
-            self.machine["pos_y"] = y
+            self.bounding_box["max_x"] = max(self.machine["pos_x"], self.bounding_box["max_x"])
+            self.bounding_box["max_y"] = max(self.machine["pos_y"], self.bounding_box["max_y"])
+            self.bounding_box["min_x"] = min(self.machine["pos_x"], self.bounding_box["min_x"])
+            self.bounding_box["min_y"] = min(self.machine["pos_y"], self.bounding_box["min_y"])
 
+    # careful - with steps=10M file size will be about 36G
     def dump_to_file(self):
         # recalculate coordinate range from -x..x, -y..y to 0..X, 0..Y
         self.bounding_box["offset_x"] = 0 - self.bounding_box["min_x"]
@@ -54,14 +51,10 @@ class Simulator(object):
         self.bounding_box["offset_min_y"] = self.bounding_box["min_y"] + self.bounding_box["offset_y"]
         self.bounding_box["offset_max_x"] = self.bounding_box["max_x"] + self.bounding_box["offset_x"]
         self.bounding_box["offset_max_y"] = self.bounding_box["max_y"] + self.bounding_box["offset_y"]
-        self.save_file()
-
-    # careful - with steps=10M file size will be about 36G
-    def save_file(self):
         # pass one - write down the empty field
         file = open(self.filename, "w")
+        p_line = bytearray('.' * (self.bounding_box["offset_max_x"]+1))
         for y in range(self.bounding_box["offset_max_y"],self.bounding_box["offset_min_y"]-1, -1):
-            p_line = bytearray('.' * (self.bounding_box["offset_max_x"]+1))
             file.write(p_line)
             file.write("\n")
         file.close()
@@ -76,7 +69,6 @@ class Simulator(object):
             file.seek(file_length-y*line_length+x)
             file.write('*')
         file.close()
-
 
 class PUTHandler(BaseHTTPRequestHandler):
     def do_PUT(self):
