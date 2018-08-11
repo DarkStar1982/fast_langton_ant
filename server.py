@@ -69,7 +69,7 @@ class Simulator(object):
         return file_length
 
 class PUTHandler(BaseHTTPRequestHandler):
-    def do_put(self):
+    def do_PUT(self):
         length = self.headers['Content-Length']
         content = self.rfile.read(int(length))
         request_data = loads(content)
@@ -77,12 +77,12 @@ class PUTHandler(BaseHTTPRequestHandler):
             simulator = Simulator()
             start_time = time()
             simulator.run_steps(request_data["run_steps"])
-            print "%4.1f steps per second" % (request_data["run_steps"]/(time() - start_time))
+            print "CPU: %4.1f steps per second" % (request_data["run_steps"]/(time() - start_time))
             if not OPTIONS["nofile"]:
                 start_time = time()
                 bytes_written = simulator.dump_to_file(request_data["filename"])
                 io_speed = bytes_written/(time() - start_time)
-                print "%4.1f MB per second average written" % (io_speed/1.0E6)
+                print "IO: %4.1f MB per second average written" % (io_speed/1.0E6)
             self.send_response(200)
         else:
             self.send_response(400)
@@ -96,7 +96,9 @@ def main(argv):
     for opt, arg in opts:
         if opt in ('-h','--help'):
             print "Specify server port with -p <port number> or --port <port number>"
-            print "Default port number is 8080"
+            print "\tDefault port number is 8080"
+            print "Specifying -n or --nofile option doesn't save simulation result to disk"
+            print "\tUseful when running in benchmark mode only"
             sys.exit(0)
         if opt in ('-n','--nofile'):
             OPTIONS["nofile"] = True
