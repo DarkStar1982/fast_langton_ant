@@ -8,7 +8,7 @@ import getopt
 # program wide options
 OPTIONS = {
     "nofile":False,
-    "port": 8080
+    "port": 8080,
 }
 
 class Simulator(object):
@@ -27,7 +27,8 @@ class Simulator(object):
         }
 
     def run_steps(self, steps):
-        for i in range(0,steps):
+        i = 0
+        while (i < steps):
             # check local position and rotate counterclockwise (can go negative)
             # or clockwise (always positive) in 90 deg increments, and flip color
             if (self.machine["pos_x"],self.machine["pos_y"]) in self.black_cell_dict:
@@ -44,6 +45,7 @@ class Simulator(object):
             self.bounding_box["max_y"] = max(self.machine["pos_y"], self.bounding_box["max_y"])
             self.bounding_box["min_x"] = min(self.machine["pos_x"], self.bounding_box["min_x"])
             self.bounding_box["min_y"] = min(self.machine["pos_y"], self.bounding_box["min_y"])
+            i = i + 1
 
     def dump_to_file(self, filename):
         # recalculate coordinate range from -x..x, -y..y to 0..X, 0..Y
@@ -51,7 +53,7 @@ class Simulator(object):
         offset_max_y = self.bounding_box["max_y"] - self.bounding_box["min_y"]
         # pass one - write down the empty field
         file = open(filename, "w")
-        p_line = bytearray('.' * (offset_max_x+1))
+        p_line = '.' * (offset_max_x+1)
         for y in range(offset_max_y, -1, -1):
             file.write(p_line)
             file.write("\n")
@@ -77,28 +79,27 @@ class PUTHandler(BaseHTTPRequestHandler):
             simulator = Simulator()
             start_time = time()
             simulator.run_steps(request_data["run_steps"])
-            print "CPU: %4.1f steps per second" % (request_data["run_steps"]/(time() - start_time))
+            print ("CPU: %4.1f steps per second" % (request_data["run_steps"]/(time() - start_time)))
             if not OPTIONS["nofile"]:
                 start_time = time()
                 bytes_written = simulator.dump_to_file(request_data["filename"])
                 io_speed = bytes_written/(time() - start_time)
-                print "IO: %4.1f MB per second average written" % (io_speed/1.0E6)
+                print ("IO: %4.1f MB per second average written" % (io_speed/1.0E6))
             self.send_response(200)
         else:
             self.send_response(400)
 
 def main(argv):
     try:
-        opts, args = getopt.getopt(argv,"hnp:",["help","nofile","port=",])
+        opts, args = getopt.getopt(argv,"bhnp:",["benchmark","help","nofile","port=",])
     except getopt.GetoptError:
         print ('server.py --help')
         sys.exit(2)
     for opt, arg in opts:
         if opt in ('-h','--help'):
-            print "Specify server port with -p <port number> or --port <port number>"
-            print "\tDefault port number is 8080"
-            print "Specifying -n or --nofile option doesn't save simulation result to disk"
-            print "\tUseful when running in benchmark mode only"
+            print ("Specify server port with -p <port number> or --port <port number>")
+            print ("\tDefault port number is 8080")
+            print ("Specifying -n or --nofile option doesn't save simulation result to disk")
             sys.exit(0)
         elif opt in ('-n','--nofile'):
             OPTIONS["nofile"] = True

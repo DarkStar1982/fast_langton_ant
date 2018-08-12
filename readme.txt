@@ -16,6 +16,8 @@ in one cell facing right. It will move based on the following rules:
 * Minimalistic functionality with no extras - only does what is requested and no more
 * filename is included in the request body - stored in the same directory
 * No out of memory or out of disk precautions - can definitely run out of both on large number of steps requested
+* With some efforts, tested up to 10M steps with file save, up to 1B steps in-memory only
+* Average speed around 330,000 gen/sec and amortized I/O tops out at 220 MB/s on MacBook Pro (late 2013)
 
 ========HOW TO USE==================
 * Implemented as command line utility, with a standard command format convention
