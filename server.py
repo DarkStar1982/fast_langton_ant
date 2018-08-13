@@ -2,10 +2,8 @@
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from json import loads
 from time import time
-import sys
-import getopt
+import sys, getopt
 
-# program wide options
 OPTIONS = {
     "nofile":False,
     "port": 8080,
@@ -20,48 +18,39 @@ class Simulator(object):
             "max_y":0, "max_x":0,
         }
         self.moves = {
-            0:  [0,1],  # up
-            90: [1,0],  # right
-            180:[0,-1], # down
-            270:[-1,0], # left
+            0:  [0,  1], 90: [ 1, 0],  # up right
+            180:[0, -1], 270:[-1, 0],  # down left
         }
 
     def run_steps(self, steps):
         i = 0
         while (i < steps):
-            # check local position and rotate counterclockwise (can go negative)
-            # or clockwise (always positive) in 90 deg increments, and flip color
             if (self.machine["pos_x"],self.machine["pos_y"]) in self.black_cell_dict:
                 self.machine["angle"] = (self.machine["angle"] - 90) % 360
                 del self.black_cell_dict[(self.machine["pos_x"],self.machine["pos_y"])]
             else:
                 self.machine["angle"] = (self.machine["angle"] + 90) % 360
                 self.black_cell_dict[(self.machine["pos_x"],self.machine["pos_y"])] = 1
-            # advance one unit in the current direction
             self.machine["pos_x"] = self.machine["pos_x"] + self.moves[self.machine["angle"]][0]
             self.machine["pos_y"] = self.machine["pos_y"] + self.moves[self.machine["angle"]][1]
-            # update bounding box
             self.bounding_box["max_x"] = max(self.machine["pos_x"], self.bounding_box["max_x"])
             self.bounding_box["max_y"] = max(self.machine["pos_y"], self.bounding_box["max_y"])
             self.bounding_box["min_x"] = min(self.machine["pos_x"], self.bounding_box["min_x"])
             self.bounding_box["min_y"] = min(self.machine["pos_y"], self.bounding_box["min_y"])
             i = i + 1
+        self.offset_max_x = self.bounding_box["max_x"] - self.bounding_box["min_x"]
+        self.offset_max_y = self.bounding_box["max_y"] - self.bounding_box["min_y"]
 
     def dump_to_file(self, filename):
-        # recalculate coordinate range from -x..x, -y..y to 0..X, 0..Y
-        offset_max_x = self.bounding_box["max_x"] - self.bounding_box["min_x"]
-        offset_max_y = self.bounding_box["max_y"] - self.bounding_box["min_y"]
-        # pass one - write down the empty field
         file = open(filename, "w")
-        p_line = '.' * (offset_max_x+1)
-        for y in range(offset_max_y, -1, -1):
+        p_line = '.' * (self.offset_max_x+1)
+        for y in range(self.offset_max_y, -1, -1):
             file.write(p_line)
             file.write("\n")
         file.close()
-        # pass two - write down the black cells
         file = open(filename, "r+")
-        line_length = offset_max_x+2
-        file_length = line_length*offset_max_y
+        line_length = self.offset_max_x+2
+        file_length = line_length*self.offset_max_y
         for item in self.black_cell_dict.keys():
             x = item[0] - self.bounding_box["min_x"]
             y = item[1] - self.bounding_box["min_y"]
@@ -83,30 +72,28 @@ class PUTHandler(BaseHTTPRequestHandler):
             if not OPTIONS["nofile"]:
                 start_time = time()
                 bytes_written = simulator.dump_to_file(request_data["filename"])
-                io_speed = bytes_written/(time() - start_time)
-                print ("IO: %4.1f MB per second average written" % (io_speed/1.0E6))
+                io_speed = (bytes_written/(time() - start_time))/1.0E6
+                print ("IO: %4.1f MB per second average written" % io_speed)
             self.send_response(200)
         else:
             self.send_response(400)
 
 def main(argv):
     try:
-        opts, args = getopt.getopt(argv,"bhnp:",["benchmark","help","nofile","port=",])
+        opts, args = getopt.getopt(argv,"hnp:",["help","nofile","port=",])
     except getopt.GetoptError:
         print ('server.py --help')
         sys.exit(2)
     for opt, arg in opts:
         if opt in ('-h','--help'):
-            print ("Specify server port with -p <port number> or --port <port number>")
-            print ("\tDefault port number is 8080")
+            print ("Specify server port with -p <port number> or --port <port number>. Default port is 8080")
             print ("Specifying -n or --nofile option doesn't save simulation result to disk")
             sys.exit(0)
         elif opt in ('-n','--nofile'):
             OPTIONS["nofile"] = True
         elif opt in ('-p','--port'):
             OPTIONS["port"] = int(arg)
-    # run HTTP request server
-    instance = ('localhost', OPTIONS["port"])
+    instance = ('0.0.0.0', OPTIONS["port"])
     http_server = HTTPServer(instance, PUTHandler)
     http_server.serve_forever()
 

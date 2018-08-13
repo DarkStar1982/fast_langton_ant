@@ -21,7 +21,7 @@ in one cell facing right. It will move based on the following rules:
 
 ========HOW TO USE==================
 * Implemented as command line utility, with a standard command format convention
-* On Mac specify port number above 1024 (due OS restrictions)
+* On Mac specify port number above 1024 (due to OS restrictions)
 * Example call to run as a server:
   "server.py -p 8081"
 * Example client call
