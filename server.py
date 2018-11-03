@@ -7,6 +7,7 @@ import sys, getopt
 OPTIONS = {
     "nofile":False,
     "port": 8080,
+    "filename":"test.txt"
 }
 
 class Simulator(object):
@@ -59,42 +60,34 @@ class Simulator(object):
         file.close()
         return file_length
 
-class PUTHandler(BaseHTTPRequestHandler):
-    def do_PUT(self):
-        length = self.headers['Content-Length']
-        content = self.rfile.read(int(length))
-        request_data = loads(content)
-        if "run_steps" in request_data and "filename" in request_data:
-            simulator = Simulator()
-            start_time = time()
-            simulator.run_steps(request_data["run_steps"])
-            print ("CPU: %4.1f steps per second" % (request_data["run_steps"]/(time() - start_time)))
-            if not OPTIONS["nofile"]:
-                start_time = time()
-                bytes_written = simulator.dump_to_file(request_data["filename"])
-                io_speed = (bytes_written/(time() - start_time))/1.0E6
-                print ("IO: %4.1f MB per second average written" % io_speed)
-            self.send_response(200)
-        else:
-            self.send_response(400)
+def run_benchmark():
+    simulator = Simulator()
+    start_time = time()
+    simulator.run_steps(OPTIONS["steps"])
+    print ("CPU performance: %4.2fK gen/s" % ((OPTIONS["steps"]/1000)/(time() - start_time)))
+    if not OPTIONS["nofile"]:
+        start_time = time()
+        bytes_written = simulator.dump_to_file(OPTIONS["filename"])
+        end_time = time()
+        io_speed = ((bytes_written)/(end_time - start_time))/1.048576E6
+        print ("I/O performance: %4.2f MB/s " % io_speed)
 
 def main(argv):
     try:
-        opts, args = getopt.getopt(argv,"hnp:",["help","nofile","port=",])
+        opts, args = getopt.getopt(argv,"hns:f:",["help","nofile","steps=","file="])
     except getopt.GetoptError:
         print ('server.py --help')
         sys.exit(2)
     for opt, arg in opts:
         if opt in ('-h','--help'):
-            print ("Specify server port with -p <port number> or --port <port number>. Default port is 8080")
             print ("Specifying -n or --nofile option doesn't save simulation result to disk")
             sys.exit(0)
         elif opt in ('-n','--nofile'):
             OPTIONS["nofile"] = True
-        elif opt in ('-p','--port'):
-            OPTIONS["port"] = int(arg)
-    instance = ('0.0.0.0', OPTIONS["port"])
-    http_server = HTTPServer(instance, PUTHandler)
-    http_server.serve_forever()
+        elif opt in ('-s','--steps'):
+            OPTIONS["steps"] = int(arg)
+        elif opt in ('-f','--file'):
+            OPTIONS["filename"] = arg
+    run_benchmark()
 
 main(sys.argv[1:])
