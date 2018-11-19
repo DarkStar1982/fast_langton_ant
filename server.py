@@ -4,7 +4,6 @@ import sys, getopt
 
 OPTIONS = {
     "nofile":False,
-    "port": 8080,
     "filename":"test.txt",
     "steps":0
 }
