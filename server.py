@@ -80,7 +80,7 @@ def main(argv):
         if opt in ('-h','--help'):
             print ("Langton's ant algorithm implementation.")
             print ("\tUse as: 'server.py -s <generations> -f <filename>'. This will run the simulation")
-            print("\tfor a number of generations specified and save the result in the file provided.")
+            print ("\tfor a number of generations specified and save the result in the file provided.")
             print ("\tSpecifying -n or --nofile option doesn't save simulation result to disk.")
             sys.exit(0)
         elif opt in ('-n','--nofile'):
